@@ -1,52 +1,106 @@
-import xml.etree.ElementTree as ET
+# Import necessary libraries
 import os
-import glob
+import numpy as np
+import tensorflow as tf
+from tensorflow.keras import layers, models
+from tensorflow.keras.applications import ResNet50
+from tensorflow.keras.applications.resnet50 import preprocess_input
+from tensorflow.keras.preprocessing.image import load_img, img_to_array
+from lxml import etree
 
-def convert(size, box):
-    dw = 1. / size[0]
-    dh = 1. / size[1]
-    x = (box[0] + box[1]) / 2.0 - 1
-    y = (box[2] + box[3]) / 2.0 - 1
-    w = box[1] - box[0]
-    h = box[3] - box[2]
-    x = x * dw
-    w = w * dw
-    y = y * dh
-    h = h * dh
-    return (x, y, w, h)
+# Define paths to annotation and image directories
+annotations_dir = "C:\\Users\\smirz\\OneDrive\\Documents\\Coding Minds\\Jerry Ku\\dataset\\annotations\\"
+images_dir = "C:\\Users\\smirz\\OneDrive\\Documents\\Coding Minds\\Jerry Ku\\dataset\\images"
 
-def convert_annotation(xml_file, classes):
-    in_file = open(xml_file)
-    out_file = open(xml_file.replace(".xml", ".txt"), 'w')
-    tree = ET.parse(in_file)
+# Define classes
+classes = ['With Helmet', 'Without Helmet']
+
+# Parse XML annotations
+def parse_annotation(annotation_file):
+    tree = etree.parse(annotation_file)
     root = tree.getroot()
-    size = root.find('size')
-    w = int(size.find('width').text)
-    h = int(size.find('height').text)
+    objects = []
+    for obj in root.findall('object'):
+        obj_struct = {}
+        obj_struct['name'] = obj.find('name').text
+        bbox = obj.find('bndbox')
+        obj_struct['bbox'] = [int(bbox.find('xmin').text), int(bbox.find('ymin').text),
+                              int(bbox.find('xmax').text), int(bbox.find('ymax').text)]
+        objects.append(obj_struct)
+    return objects
 
-    for obj in root.iter('object'):
-        difficult = obj.find('difficult').text
-        cls = obj.find('name').text
-        if cls not in classes or int(difficult) == 1:
-            continue
-        cls_id = classes.index(cls)
-        xmlbox = obj.find('bndbox')
-        b = (float(xmlbox.find('xmin').text), float(xmlbox.find('xmax').text),
-             float(xmlbox.find('ymin').text), float(xmlbox.find('ymax').text))
-        bb = convert((w, h), b)
-        out_file.write(str(cls_id) + " " + " ".join([str(a) for a in bb]) + '\n')
+# Load images and annotations
+def load_data(annotations_dir, images_dir):
+    X, y = [], []
+    for annotation_file in os.listdir(annotations_dir):
+        if annotation_file.endswith('.xml'):
+            annotation_path = os.path.join(annotations_dir, annotation_file)
+            objects = parse_annotation(annotation_path)
+            image_path = os.path.join(images_dir, annotation_file.replace('.xml', '.png'))
+            image = load_img(image_path, target_size=(224, 224))
+            image = img_to_array(image)
+            X.append(preprocess_input(image))
+            labels = [0] * len(classes)
+            for obj in objects:
+                label_idx = classes.index(obj['name'])
+                labels[label_idx] = 1
+            y.append(labels)
+    return np.array(X), np.array(y)
 
-    in_file.close()
-    out_file.close()
+# Load and preprocess data
+X_train, y_train = load_data(annotations_dir, images_dir)
 
-# Define your classes here (they must match your dataset's labels)
-classes = ["With Helmet", "Without Helmet"]
+# Define Faster R-CNN model
+def create_faster_rcnn():
+    base_model = ResNet50(include_top=False, weights='imagenet', input_shape=(224, 224, 3))
+    for layer in base_model.layers:
+        layer.trainable = False
+    x = base_model.output
+    x = layers.GlobalAveragePooling2D()(x)
+    x = layers.Dense(128, activation='relu')(x)
+    output = layers.Dense(len(classes), activation='sigmoid')(x)
+    model = models.Model(inputs=base_model.input, outputs=output)
+    return model
 
-# Path to your VOC dataset folder containing XML files
-voc_annotations_path = "C:\\Users\\smirz\\OneDrive\\Documents\\Coding Minds\\Jerry Ku\\dataset\\annotations\\"
+# Compile model
+model = create_faster_rcnn()
+model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 
-# Convert each XML annotation to YOLO format
-xml_files = glob.glob(os.path.join(voc_annotations_path, "*.xml"))
-print((len(xml_files)))
-for xml_file in xml_files:
-    convert_annotation(xml_file, classes)
+# Train model
+model.fit(X_train, y_train, epochs=25, batch_size=32, validation_split=0.2)
+
+model.save("C:\\Users\\smirz\\OneDrive\\Documents\\Coding Minds\\Jerry Ku\\helmet_detection_model.h5")
+
+# Load the saved model
+loaded_model = tf.keras.models.load_model("C:\\Users\\smirz\\OneDrive\\Documents\\Coding Minds\\Jerry Ku\\helmet_detection_model.h5")
+
+# Function to preprocess the input image
+def preprocess_image(image_path):
+    image = tf.keras.preprocessing.image.load_img(image_path, target_size=(224, 224))
+    image = tf.keras.preprocessing.image.img_to_array(image)
+    image = np.expand_dims(image, axis=0)
+    image = tf.keras.applications.resnet50.preprocess_input(image)
+    return image
+
+# Function to make predictions on images
+def predict_image(image_path, model):
+    preprocessed_image = preprocess_image(image_path)
+    prediction = model.predict(preprocessed_image)
+    return prediction
+
+# Path to test images
+test_images_dir = "C:\\Users\\smirz\\OneDrive\\Documents\\Coding Minds\\Jerry Ku\\dataset\\images\\"
+
+# Choose some images to test
+image_filenames = [
+    "BikesHelmets0.png",
+    "BikesHelmets100.png",
+    "BikesHelmets105.png",
+    # Add more image filenames as needed
+]
+
+# Make predictions on test images
+for image_filename in image_filenames:
+    image_path = os.path.join(test_images_dir, image_filename)
+    prediction = predict_image(image_path, loaded_model)
+    print("Prediction for", image_filename, ":", prediction)
