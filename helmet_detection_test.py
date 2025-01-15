@@ -1,35 +1,35 @@
-import torch
-from torchvision import transforms
-from PIL import Image
+from ultralytics import YOLO
 import cv2
 import pygame
 import time
 
-# Load the saved .pt model
-model = torch.load("helmet_detection_model.pt")
-model.eval()  # Set the model to evaluation mode
+# Load the YOLO model
+model = YOLO("helmet_detection_model.pt")
 
 # Initialize pygame mixer for playing sound
 pygame.mixer.init()
 sound = pygame.mixer.Sound("helmet_warning.wav")
 
-# Function to preprocess the input image for PyTorch
+# Function to preprocess the input image
 def preprocess_image(image):
-    transform = transforms.Compose([
-        transforms.ToPILImage(),  # Convert OpenCV image (NumPy array) to PIL Image
-        transforms.Resize((224, 224)),  # Resize to 224x224
-        transforms.ToTensor(),  # Convert PIL Image to PyTorch tensor
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # Normalize for ResNet50
-    ])
-    return transform(image).unsqueeze(0)  # Add batch dimension
+    return cv2.resize(image, (640, 640))  # Resize image to YOLO's default input size
 
 # Function to make predictions on the image
 def predict_image(image, model):
-    preprocessed_image = preprocess_image(image)
-    with torch.no_grad():  # No need for gradients during inference
-        outputs = model(preprocessed_image)
-        _, predicted = torch.max(outputs, 1)  # Get the index of the class with the highest probability
-    return predicted.item()  # Returns 0 for "No Helmet", 1 for "With Helmet"
+    # Preprocess the image
+    image = preprocess_image(image)
+    
+    # Run inference using YOLO
+    results = model.predict(source=image, save=False, save_txt=False)
+    
+    # Extract predictions
+    for result in results:
+        # Assuming class 0 is "No Helmet" and class 1 is "With Helmet"
+        if result.boxes.cls == 0:  # Replace with actual class IDs for your model
+            return 0  # No Helmet
+        elif result.boxes.cls == 1:
+            return 1  # With Helmet
+    return -1  # Default if no detection is made
 
 # Capture an image from the camera
 def capture_image():
@@ -60,7 +60,9 @@ while True:
     if helmet_status == 0:  # No helmet detected
         print("No Helmet Detected!")
         play_warning_sound(repeat_times=3)
-    else:
+    elif helmet_status == 1:  # Helmet detected
         print("Helmet Detected.")
+    else:
+        print("No detection made.")
     
     time.sleep(1)  # Wait for 1 second before capturing the next image
