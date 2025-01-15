@@ -1,28 +1,35 @@
-import tensorflow as tf
-import numpy as np
+import torch
+from torchvision import transforms
+from PIL import Image
 import cv2
 import pygame
 import time
 
-# Load the saved .h5 model
-model = tf.keras.models.load_model("helmet_detection_model.h5")
+# Load the saved .pt model
+model = torch.load("helmet_detection_model.pt")
+model.eval()  # Set the model to evaluation mode
 
 # Initialize pygame mixer for playing sound
 pygame.mixer.init()
 sound = pygame.mixer.Sound("helmet_warning.wav")
 
-# Function to preprocess the input image
+# Function to preprocess the input image for PyTorch
 def preprocess_image(image):
-    image = cv2.resize(image, (224, 224))  # Resize image to 224x224
-    image = np.expand_dims(image, axis=0)  # Add batch dimension
-    image = tf.keras.applications.resnet50.preprocess_input(image)  # Preprocess for ResNet50
-    return image
+    transform = transforms.Compose([
+        transforms.ToPILImage(),  # Convert OpenCV image (NumPy array) to PIL Image
+        transforms.Resize((224, 224)),  # Resize to 224x224
+        transforms.ToTensor(),  # Convert PIL Image to PyTorch tensor
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # Normalize for ResNet50
+    ])
+    return transform(image).unsqueeze(0)  # Add batch dimension
 
 # Function to make predictions on the image
 def predict_image(image, model):
     preprocessed_image = preprocess_image(image)
-    prediction = model.predict(preprocessed_image)
-    return np.argmax(prediction, axis=-1)  # Returns 0 for "No Helmet", 1 for "With Helmet"
+    with torch.no_grad():  # No need for gradients during inference
+        outputs = model(preprocessed_image)
+        _, predicted = torch.max(outputs, 1)  # Get the index of the class with the highest probability
+    return predicted.item()  # Returns 0 for "No Helmet", 1 for "With Helmet"
 
 # Capture an image from the camera
 def capture_image():
