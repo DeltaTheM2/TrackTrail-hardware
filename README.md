@@ -1,4 +1,4 @@
-# Helmet and GPS Tracking Project
+# Track Trail Hardware
 
 This project consists of three Python scripts (`helmet.py`, `gps.py`, and `main.py`) designed to run on a Raspberry Pi. The scripts handle helmet detection using a camera and machine learning model, GPS tracking with movement detection, and continuous sensor data collection, respectively. The system runs automatically on startup using systemd services.
 
