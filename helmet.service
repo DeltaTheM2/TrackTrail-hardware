@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 ExecStart=/usr/bin/python3 /home/jerry/Project/helmet.py
-WorkingDirectory=/home/jerry
+WorkingDirectory=/home/jerry/Project
 Restart=always
 User=jerry
 

@@ -4,7 +4,7 @@ After=helmet.service
 
 [Service]
 ExecStart=/usr/bin/python3 /home/jerry/Project/gps.py
-WorkingDirectory=/home/jerry
+WorkingDirectory=/home/jerry/Project
 Restart=always
 User=pi
 

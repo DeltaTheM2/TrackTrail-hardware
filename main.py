@@ -56,6 +56,7 @@ def main():
             print(f"Data sent: {data}")
         else:
             print("waiting for GPS fix...")
+            
         time.sleep(0.1)
 
 if __name__ == "__main__":
