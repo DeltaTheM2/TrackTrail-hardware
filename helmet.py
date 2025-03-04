@@ -4,73 +4,59 @@ import pygame
 import time
 from picamera2 import Picamera2
 import cv2
-# Load the saved .h5 model
-model = tf.keras.models.load_model("helmet_detection_model.h5")
+import firebase_admin
+from firebase_admin import credentials, firestore
 
-# Initialize pygame mixer for playing sound
+cred = credentials.Certificate("/path/to/your/serviceAccountKey.json")
+firebase_admin.initialize_app(cred, name='helmet')
+db = firestore.client()
+USER_ID = 'oF0C5dWBXNdZuwg9VF2YmzrmPNy1'
+
+model = tf.keras.models.load_model("helmet_detection_model.h5")
 pygame.mixer.init()
 sound = pygame.mixer.Sound("no_helmet.mp3")
 picam2 = Picamera2()
 picam2.configure(picam2.create_still_configuration())
 
-# Function to preprocess the input image
 def preprocess_image(image):
-    # Convert the image to a writable NumPy array with dtype float32
     image = np.array(image, dtype=np.float32, copy=True)
-
-    # Ensure the array is writable
     image.setflags(write=1)
-
-    # Print image flags to verify
-    print("Image flags after conversion:")
-    print(image.flags)
-
-    # Resize the image to 224x224 using OpenCV
     image = cv2.resize(image, (224, 224))
-
-    # Expand dimensions to match the model's input shape
     image = np.expand_dims(image, axis=0)
+    return tf.keras.applications.resnet50.preprocess_input(image)
 
-    # Preprocess the image using ResNet50's preprocess_input function
-    image = tf.keras.applications.resnet50.preprocess_input(image)
-
-    return image
-
-# Function to make predictions on the image
-def predict_image(image, model):
+def predict_image(image):
     preprocessed_image = preprocess_image(image)
     prediction = model.predict(preprocessed_image)
-    return np.argmax(prediction, axis=-1)  # Returns 0 for "No Helmet", 1 for "With Helmet"
+    return np.argmax(prediction, axis=-1)
 
-# Capture an image using the PiCamera2
 def capture_image():
     picam2.start()
-    time.sleep(1)  # Give the camera time to adjust before capturing the image
+    time.sleep(1)
     image = picam2.capture_array()
     picam2.stop()
-    time.sleep(1)
-    # Return the captured image
     return image
 
-# Function to play a warning sound if no helmet is detected
 def play_warning_sound(repeat_times=3):
     for _ in range(repeat_times):
         sound.play()
-        time.sleep(5)  # Play the sound for 2 seconds
-        sound.stop()  # Stop the sound after playing
+        time.sleep(5)
+        sound.stop()
 
-# Main loop to capture image and check for helmet
-while True:
-    # Capture the image from the camera
-    image = capture_image()
+def main():
+    while True:
+        image = capture_image()
+        helmet_status = predict_image(image)
+        
+        if helmet_status == 0:
+            print("No Helmet Detected!")
+            play_warning_sound()
+        else:
+            print("Helmet Detected.")
+            # Set initial trip status to false when helmet is detected
+            db.collection('users').document(USER_ID).set({"is_in_trip": False}, merge=True)
+            break
+        time.sleep(5)
 
-    # Run inference to check if helmet is detected
-    helmet_status = predict_image(image, model)
-
-    if helmet_status == 0:  # No helmet detected
-        print("No Helmet Detected!")
-        play_warning_sound(repeat_times=3)
-    else:
-        print("Helmet Detected.")
-        break
-    time.sleep(5)  # Wait for 1 second before capturing the next image
+if __name__ == "__main__":
+    main()
