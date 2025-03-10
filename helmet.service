@@ -3,8 +3,8 @@ Description=Helmet Detection Service
 After=network.target
 
 [Service]
-ExecStart=/usr/bin/python3 /home/jerry/Project/helmet.py
-WorkingDirectory=/home/jerry/Project
+ExecStart=/usr/bin/python3 /home/jerry/TrackTrail-hardware/helmet.py
+WorkingDirectory=/home/jerry/TrackTrail-hardware
 Restart=always
 User=jerry
 
