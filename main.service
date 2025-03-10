@@ -6,7 +6,7 @@ After=gps.service
 ExecStart=/usr/bin/python3 /home/jerry/TrackTrail-hardware/main.py
 WorkingDirectory=/home/jerry/TrackTrail-hardware
 Restart=always
-User=pi
+User=jerry
 
 [Install]
 WantedBy=multi-user.target
