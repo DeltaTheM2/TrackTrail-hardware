@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Define paths
-PROJECT_DIR="/home/jerry/Project"
+PROJECT_DIR="/home/jerry/TrackTrail-hardware"
 SERVICE_DIR="/etc/systemd/system"
 
 # Copy service files to systemd directory
