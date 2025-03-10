@@ -9,7 +9,7 @@ from firebase_admin import credentials, firestore
 
 cred = credentials.Certificate("serviceAccountKey.json")
 firebase_admin.initialize_app(cred, name='helmet')
-db = firestore.client()
+db = firestore.client(app=firebase_admin.get_app('helmet'))
 USER_ID = 'oF0C5dWBXNdZuwg9VF2YmzrmPNy1'
 
 model = tf.keras.models.load_model("helmet_detection_model.h5")
