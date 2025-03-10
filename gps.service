@@ -6,7 +6,7 @@ After=helmet.service
 ExecStart=/usr/bin/python3 /home/jerry/TrackTrail-hardware/gps.py
 WorkingDirectory=/home/jerry/TrackTrail-hardware
 Restart=always
-User=pi
+User=jerry
 
 [Install]
 WantedBy=multi-user.target
