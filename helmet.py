@@ -7,7 +7,7 @@ import cv2
 import firebase_admin
 from firebase_admin import credentials, firestore
 
-cred = credentials.Certificate("/path/to/your/serviceAccountKey.json")
+cred = credentials.Certificate("serviceAccountKey.json")
 firebase_admin.initialize_app(cred, name='helmet')
 db = firestore.client()
 USER_ID = 'oF0C5dWBXNdZuwg9VF2YmzrmPNy1'
